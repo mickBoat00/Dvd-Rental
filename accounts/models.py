@@ -2,6 +2,18 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.db import models
 
 
+class Address(models.Model):
+    address = models.CharField(max_length=100)
+    address2 = models.CharField(max_length=100, null=True, blank=True)
+    district = models.CharField(max_length=50)
+    city = models.CharField(max_length=50)
+    postal_code = models.CharField(max_length=50)
+    phone = models.CharField(max_length=15, null=True, blank=True)
+
+    def __str__(self) -> str:
+        return self.address
+
+
 class UserManager(BaseUserManager):
     def create_user(self, email, date_of_birth, user_type, password=None):
         """
@@ -39,7 +51,7 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser):
     CUSTOMER = "customer"
-    MANAGER = "Manager"
+    MANAGER = "manager"
     STAFF = "staff"
 
     USER_TYPE = [
@@ -53,6 +65,7 @@ class User(AbstractBaseUser):
         max_length=255,
         unique=True,
     )
+    address = models.OneToOneField(Address, related_name="person", on_delete=models.SET_NULL, null=True, blank=True)
     user_type = models.CharField(max_length=8, choices=USER_TYPE)
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)
@@ -81,3 +94,22 @@ class User(AbstractBaseUser):
         "Is the user a member of staff?"
         # Simplest possible answer: All admins are staff
         return self.is_admin
+    
+    def __str__(self) -> str:
+        return self.email
+
+
+class BaseEmployee(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    picture = models.ImageField()
+    last_update = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"Employee {self.user.email}"
+
+
+class Staff(BaseEmployee):
+    pass
+
+class Manager(BaseEmployee):
+    pass
