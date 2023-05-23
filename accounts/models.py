@@ -1,50 +1,21 @@
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django.contrib.auth.models import AbstractBaseUser
 from django.db import models
 from django.db.models.signals import post_save
 
-
-class UserManager(BaseUserManager):
-    def create_user(self, email, user_type, password=None):
-        """
-        Creates and saves a User with the given email, date of
-        birth and password.
-        """
-        if not email:
-            raise ValueError("Users must have an email address")
-
-        user = self.model(
-            email=self.normalize_email(email),
-            user_type=user_type
-        )
-
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_superuser(self, email, user_type, password=None):
-        """
-        Creates and saves a superuser with the given email, date of
-        birth and password.
-        """
-        user = self.create_user(
-            email,
-            password=password,
-            user_type=user_type
-        )
-        user.is_admin = True
-        user.save(using=self._db)
-        return user
+from accounts.managers import UserManager
 
 
 class User(AbstractBaseUser):
     CUSTOMER = "customer"
     MANAGER = "manager"
     STAFF = "staff"
+    ADMIN = "admin"
 
     USER_TYPE = [
-        (CUSTOMER, "Customer"),
+        (ADMIN, "Admin"),
         (MANAGER, "Manager"),
         (STAFF, "Staff"),
+        (CUSTOMER, "Customer"),
     ]
 
     email = models.EmailField(
@@ -84,6 +55,16 @@ class User(AbstractBaseUser):
     
     def __str__(self) -> str:
         return self.email
+    
+def update_other_user_models(sender, instance, created, **kwargs):
+    if created:
+        if instance.user_type == "manager":
+            Manager.objects.create(user=instance)
+        elif instance.user_type == "staff":
+            Staff.objects.create(user=instance)
+
+
+post_save.connect(update_other_user_models, User)
 
 
 class BaseEmployee(models.Model):
@@ -98,18 +79,11 @@ class Staff(BaseEmployee):
 
 class Manager(BaseEmployee):
     def __str__(self) -> str:
-        return f"Staff {self.user.email}"
-
-
-def update_other_user_models(sender, instance, created, **kwargs):
-    if created:
-        if instance.user_type == "manager":
-            Manager.objects.create(user=instance)
-        elif instance.user_type == "staff":
-            Staff.objects.create(user=instance)
-
-
-post_save.connect(update_other_user_models, User)
+        return f"Manager {self.user.email}"
+    
+class Customer(BaseEmployee):
+    def __str__(self) -> str:
+        return f"Customer {self.user.email}" 
 
 
 class Address(models.Model):
